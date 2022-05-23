@@ -1,0 +1,370 @@
+---
+title: 'Assignment #1'
+author: "Ali Tahsili"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    theme: paper
+    highlight: tango
+    self_contained: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{css, echo=FALSE}
+.ans {
+   background-color:rgb(248,248,248); 
+  padding: 1em; 
+  border: .1em solid #CCC;
+  border-radius:.2em;
+  color:purple;
+  margin: 1em 0;
+}
+```
+
+<div style="font-size:1.5em">
+**Make sure your solution to each question includes enough output to show that your solution is correct (i.e. if asked to create a vector, output the vector afterwards).  Where necessary, test will multiple values.**
+</div>
+## Question #1 - Simple Boolean Operations [4 marks]
+For each of the following parts, you should test that your expression works with both a single number  for x, and a vector of numbers for x
+
+a. Given a variable `x`, write a Boolean expression that evaluates to `TRUE` if the variable `x` is equal to `15743` (the numeric value).  [.5 mark]
+
+```{r}
+x = 15743
+x == 15743
+
+x = c(15743, 2, 3, 15743)
+x == 15743
+
+x = NA
+x == 15743
+
+x = TRUE
+x == 15743
+
+x = "R"
+x == 15743
+
+```
+
+b. Given a variable `x`, write a Boolean expression that evaluates to `TRUE` if the variable `x` is *not* `NA` (i.e., is not missing).[.5 mark]
+
+```{r}
+x = NA
+!is.na(x)
+
+x = 2
+!is.na(x)
+
+x = c(6, 2, 3)
+!is.na(x)
+
+x = TRUE
+!is.na(x)
+
+x = "RR"
+!is.na(x)
+```
+
+c. Given `x`, write a Boolean expression that returns `TRUE` if and only if `x` is smaller than `-12` or bigger than `29`. [1 mark] 
+
+```{r}
+x = 2
+x < -12 | x > 29
+
+x = c(-13, -10.5, 2.1, 59.8)
+x < -12 | x > 29
+
+x = NA
+x < -12 | x > 29
+
+x = TRUE # R considers TRUE as 1
+x < -12 | x > 29
+
+x = FALSE # R considers FALSE as 0
+x < -12 | x > 29
+
+```
+
+d. Given an integer number `x`, write a Boolean expression that returns `TRUE` if and only if `x` is an **odd** number between -8 and 12 (inclusive) or an **even** number between 100 and 150 (exclusive).  [2 marks]
+
+```{r}
+x = 6
+((x %% 2 == 1) & (x >= -8) & (x <= 12)) | ((x %% 2 == 0) & (x > 100) & (x < 150))
+
+x = c(-20, -8, 9, 54, 101, 132, 210)
+((x %% 2 == 1) & (x >= -8) & (x <= 12)) | ((x %% 2 == 0) & (x > 100) & (x < 150))
+
+x = NA
+((x %% 2 == 1) & (x >= -8) & (x <= 12)) | ((x %% 2 == 0) & (x > 100) & (x < 150))
+
+x = TRUE # R considers TRUE as 1
+((x %% 2 == 1) & (x >= -8) & (x <= 12)) | ((x %% 2 == 0) & (x > 100) & (x < 150))
+
+x = FALSE # R considers FALSE as 0
+((x %% 2 == 1) & (x >= -8) & (x <= 12)) | ((x %% 2 == 0) & (x > 100) & (x < 150))
+```
+
+## Question #2 - Vectors [8 marks]
+
+Assume the following vectors:
+```{r}
+v1<-c(1.2, 5, 10, 3.7, -6, 13, -9.3, 7, -1.2, 17, 4, 5.6,15,-3.2,20)
+alice.prefs <- c("Twitter", "Chrome", "Mac", "Summer")
+bob.prefs <- c("Facebook", "Chrome", "PC", "Summer")
+age <- c(18, NA, 25, 71, NA, 45, NA, NA, 18)
+```
+
+a. Create and output a vector called `v2` which includes the numbers from `7`-`15` where the `odd` numbers each appear `3` times and the `even` numbers each appear `5` times (Note: your code doesn't need to determine which numbers of odd or even, you can do that manually) [1 mark]
+```{r}
+v2 <- c(rep(seq(7, 15, 2), each = 3),rep(seq(7+1, 15-1, 2), each = 5))
+v2
+```
+
+b. Use an existing function to determine if `bob` and `alice` have any preferences in common (at least one value is the same). This should return a single boolean value. [1 mark]
+```{r}
+any(alice.prefs == bob.prefs)
+```
+c. Write a Boolean expression that checks whether each entry of `age` is missing.  Your expression should return a Boolean vector having the same length as `age`. [1 mark]
+```{r}
+is.na(age)
+```
+d. Write code that returns just the indexes of `age` that are missing, as a vector. [1 mark]
+```{r}
+which(is.na(age))
+```
+e. Write code that uses negative indexes and your vector from `(d)` to return only the values of `age` that are *not* missing. (i.e., your code should result in a vector with elements: 18, 25, 71, 45, 18) [1 mark]
+```{r}
+age[-which(is.na(age))]
+```
+f. Using the negation operator `!` and the `is.na()` function, write an expression that returns only the values of `age` that are *not* missing. (Should result in the same vector as `(e)`) [1 mark]
+```{r}
+age[which(!is.na(age))]
+```
+g. Generate a vector of 25 random uniform decimal numbers between `-25` and `25`.  Do the same for whole numbers. [1 marks]
+```{r}
+# 25 decimal numbers
+runif(25, -25, 25)
+# 25 whole numbers
+(WholeN <- sample(-25:25, 25))
+```
+h. Using one of the vectors from `(g)` create a third vector containing a sample (with replacement) of `10` numbers. [1 mark]
+```{r}
+(WithRep <- sample(WholeN, 10, replace = T))
+```
+i. Without sorting, calculate and output the mean of the vector created in `(h)` without the largest and smallest values [1 marks].  
+```{r}
+(sum(WithRep) - max(WithRep) - min(WithRep))/(length(WithRep) - 2)
+
+```
+
+**For  i, you solution must assume you don't know what's in the vector.  For full marks you must accomplish each in only one line of code.  Part marks will be given if you require more then one step**
+
+
+## Question #3 - Lists [3 marks]
+a. Create the following vectors [1 marks]
+    - `num` = `10` random numbers
+    - `sequence` = the sequence of numbers from `1` to `10`, by `.5`
+    - `words` = `"this", "is", "super", "fun"`
+    - `bool.vals` = `TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE`
+    
+```{r}
+(num = sample(-100:100, 10))
+
+(sequence = seq(1,10,0.5))
+
+(words = c("this", "is", "super", "fun"))
+
+(bool.vals = c(TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE))
+```
+b. Combine these vectors into a list called `stuff` and make sure each part of the list is named the same as its original vector [1 marks]
+```{r}
+(stuff = list(num = num, sequence = sequence, words = words, bool.vals = bool.vals))
+```
+c. Access the list to output just the words, then just the 3rd word. [1 marks]
+```{r}
+# Access the words 
+stuff$words
+# Access the 3rd word
+stuff$words[3]
+```
+
+
+## Question #4 - Data Frames [5 marks]
+
+
+a. Use the `CO2` data from the `datasets` package, and use head to view the top of the file.  [0.5 marks] 
+```{r}
+head(CO2)
+
+```
+b. Use just base R, output the following subsets of the data frame:
+
+- Just the `conc` column. [0.5 mark]
+```{r}
+CO2$conc
+```    
+   
+- Just the `fifth` row. [0.5 mark]
+```{r}
+CO2[5, ]
+```    
+- The first `5` rows. [0.5 mark]
+    
+```{r}
+CO2[1:5, ]
+```    
+- Rows `10` to `15`. [0.5 mark]
+    
+```{r}
+CO2[10:15, ]
+```    
+- The `plant`, `Treatment` and `uptake` columns [0.5 mark]
+    
+```{r}
+CO2[, c("Plant", "Treatment", "uptake")]
+```    
+- The rows where `Treatment` equals `chilled` [0.5 mark]
+```{r}
+CO2[CO2$Treatment == "chilled", ]
+```    
+
+- The rows where `Treatment` equals `chilled` and `uptake` <`10` [0.5 mark]
+```{r}
+CO2[CO2$Treatment == "chilled" & CO2$uptake < 10, ]
+```    
+
+ c. Drop the `Type` column from the data frame [0.5 mark]
+```{r}
+subset(CO2, select = -Type )
+```
+
+d. Add a column to the dataframe containing the results of `uptake`/`conc` [0.5 marks]
+```{r}
+transform(CO2, "uptake/conc" = uptake / conc)
+```
+
+## Question #5 - Functions & If Statments [11 marks]
+a. Generate a vector containing *50* random numbers between *-200* and *200* (with replacement). [1 mark]
+```{r}
+(NUM = sample(-200:200, 50, replace = T))
+```
+b. Write your own version of the absolute value function which accepts a vector, and uses the `ifelse` statement to create a new vector where all negative values are replaced with their positive equivalent, then returns the new vector. Use the vector in **(a)**, and output the results. [2 marks]
+```{r}
+ABS <- function (Vec) {
+  ifelse(Vec < 0, -Vec, Vec)
+}
+ABS(NUM)
+```
+c. Write a function (called `f1`), which accepts two values `(x,y)`. If `x` is even, divide by *2*.  If it’s odd, multiple by `y`. Use a complete if/else statement rather then ifelse. [2 marks]
+```{r}
+f1 <- function (x, y) {
+  if (x %% 2 == 0) {
+     return(x/2)
+  } else {
+    return(x*y)
+  }
+}
+# (Optional) Correct function for part d
+f2 <- function (x, y = 6) {
+  vect = rep(0, length(x))
+  for (i in 1:length(x)) {
+    if (x[i] %% 2 == 0) {
+      vect[i] = x[i]/2
+    } else {
+      vect[i]=(x[i]*y)
+    }
+  }
+  vect
+}
+```
+d.  Use your function from *(c)* and pass it the vector from *(a)*.  What happens?  How might you resolve this issue? (You don't need to provide code for this)[2 marks]
+
+<div class="ans">
+It shows: "Error in f1(NUM) : argument "y" is missing, with no default
+In addition: Warning message:
+In if (x%%2 == 0) { :
+  the condition has length > 1 and only the first element will be used". 
+  
+For the error, we need to introduce a default value for y when creating the function, like f1 <- function (x, y = 2). Moreover, the warning message says we need to consider x as a vector if we want to get the appropriate results. Using "for loop" before "if statement" can resolve this issue.
+</div>
+
+e. Create a function that accepts two arguments, an integer and a vector of integers. It returns `TRUE` if the integer is present in the vector, otherwise it returns `FALSE`. Make sure you pay careful attention to your placement of the return(`FALSE`) line in your function. [2 marks]
+```{r}
+IsThere <- function (int, VecInt) {
+  Flag = FALSE
+  for(i in VecInt) {
+    if (i == int) {
+      Flag = TRUE
+      break
+    }
+  }
+  Flag
+}
+IsThere(6,c(9,7,6,6,7,4,6))
+IsThere(1,c(9,7,6,6,7,4,6))
+IsThere(4,c(9,7,6,6,7,4,6))
+```
+f. Create a function that accepts two arguments, an integer and a vector of integers. It returns the count of the number of occurrences of the integer in the input vector. [2 marks]
+```{r}
+Counter <- function (int, VecInt) {
+  count = 0
+  for(i in VecInt) {
+    if (i == int) {
+      count = count + 1
+    }
+  }
+  count
+}
+Counter(6,c(9,7,6,6,7,4,6))
+Counter(7,c(9,7,6,6,7,4,6))
+Counter(1,c(9,7,6,6,7,4,6))
+Counter(9,c(9,7,6,6,7,4,6))
+```
+
+
+## Question #6 - Native Plotting [3 marks]
+Use `readr` to import the file primates.csv, and add the column names.  Using the R native `plot()` display the data in a scatterplot with brainwt vs bodywt. Add a title & axis labels to the plot.
+```{r}
+library(readr)
+(primates <- read_csv("primates.csv", skip = 1, col_names=c("Body_Weight","Brain_Weight")))
+plot(Brain_Weight ~ Body_Weight, data = primates, main = "Primates Characteristics", xlab = "Body Weight", ylab = "Brain Weight", col = "red")
+```
+
+## Question #7 - Basic Data Prep [6 marks]
+a. Use the `readr` library to import enrollment.csv.  Do not edit the file before importing, but notice you'll probably need to skip some lines on import [1 mark]
+```{r}
+library(readr)
+read_csv("enrollment.csv")
+
+```
+b. Give the columns proper names (they represent course year, term, course code, and enrollment). [1 mark]
+```{r}
+(enrollment <- read_csv("enrollment.csv",col_names=c("Year","Term","Course","Enrollment"),skip=3))
+
+```
+c. Convert year and term into Factors with more meaningful values.  [1 mark]
+```{r}
+(enrollment$Year = as.factor(enrollment$Year))
+(enrollment$Term = as.factor(enrollment$Term))
+```
+d. Use the aggregate function to determine the sum of enrollments by year and term. [1 mark]
+```{r}
+TotalYearByTerm <- aggregate(x = enrollment$Enrollment, by = list(enrollment$Year, enrollment$Term), sum)
+colnames(TotalYearByTerm) <- c("Year", "Term", "Enrollment")
+TotalYearByTerm
+```
+e. Graph your results professionally in a manner of your choice. [2 marks]
+```{r}
+library(ggplot2)
+ggplot(data = TotalYearByTerm) + geom_bar(mapping = aes(x = Year, y = Enrollment, fill = Term), stat="identity", position = "dodge") + ylab("Number of Enrollment")
+```
