@@ -1,0 +1,877 @@
+---
+title: 'Assignment #3 - AMOD 5250H'
+author: "Ali Tahsili"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    theme: paper
+    highlight: tango
+    self_contained: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+#Package management (you don't need to do anything with this, it just makes sure you have all the #packages you need for this assignment):
+
+# check if pacman is install, if not, install it from cran and load
+
+if (!require("pacman")) {
+      install.packages("pacman", dependencies=TRUE, repos='http://cran.rstudio.com/')
+      library(pacman)
+}
+
+# packages used in this report:
+pacman::p_load("tidyverse", 
+               "stringr", 
+               "babynames", 
+               "rtweet", 
+               "rstatix", 
+               "tidytext",
+               "textdata",
+               "wordcloud",
+               "reshape2",
+               "igraph",
+               "glue")
+
+
+```
+
+```{css, echo=FALSE}
+.ans {
+   background-color:rgb(248,248,248); 
+  padding: 1em; 
+  border: .1em solid #CCC;
+  border-radius:.2em;
+  color:purple;
+  margin: 1em 0;
+}
+```
+**Make sure your solution to each question includes enough output to show that your solution is correct (i.e if asked to create a vector, output the vector afterwards)**
+
+
+## Question 1 - Two Sample Statistical Tests [9 marks]
+Load *salaries.csv*, which contains the average male & female salaries (in 1000s) from 50 random collages in the US, and *BbVsFb.csv*, which contains weights of randomly sampled professional football and basketball players. Note that the two salary columns are dependent data, while the professional player data is independent. For each set of data (note: you are comparing the data within each set, not the sets), complete the following:
+
+a. Test each sample set for normalcy. Summarize the results. [3 marks]
+```{r}
+library(rstatix)
+(salaries <- read_csv("salaries.csv", 
+                      col_names=c("males","females"), 
+                      skip=1, 
+                      show_col_types = FALSE))
+
+(salaries <- salaries %>% 
+    mutate(diff_salary = males - females))
+
+shapiro_test(salaries$diff_salary)
+
+qqnorm(salaries$diff_salary); qqline(salaries$diff_salary, col = 2)
+
+ggplot(salaries, aes(x=diff_salary)) + 
+  geom_histogram(bins = 15, alpha=1/2)
+
+```
+
+
+<div class="ans">
+First, I mutated a new column with a difference of male's and female's weight. Then, a Shapiro-Wilk test on the distribution of weight differences demonstrated normality (p > 0.05). Based on the normal Q-Q plot, our observation showed normality. Also, the histogram distribution showed a bar chart slightly like a bell shape.
+
+</div>
+
+```{r}
+(BbVsFb <- read_csv("BbVsFb.csv", 
+                    col_names=c("football","basketball"), 
+                    skip=1, 
+                    show_col_types = FALSE))
+
+(BbVsFb.long <- BbVsFb %>% 
+    gather(`football`, `basketball`, 
+           key = "sport", 
+           value = "weights"))
+
+BbVsFb.long %>% 
+  group_by(sport) %>% 
+  shapiro_test(weights)
+
+football <- BbVsFb.long$weights[BbVsFb.long$sport == "football"] 
+basketball <- BbVsFb.long$weights[BbVsFb.long$sport == "basketball"]
+qqnorm(football); qqline(football, col = 2)
+qqnorm(basketball); qqline(basketball, col = 2)
+
+
+ggplot(BbVsFb.long, aes(x=weights, fill=sport)) + 
+  geom_histogram(binwidth=5, alpha=1/2)
+```
+
+<div class="ans">
+
+I used gather() to make the data set tidy for the "BbVsFb.csv" data. A Shapiro-Wilk test demonstrated normality by group (p > 0.05). Most observations for each group are approximately in the vicinity of the red line in the normal Q-Q plot. The histogram also shows normality for both football and basketball players.
+</div>
+
+b. Test to see if the sample variances are significantly different. Explain the results [3 marks]
+
+```{r}
+
+(salaries.long <- salaries %>% 
+   gather(males, 
+          females,
+          key = "gender", 
+          value = "salary") %>% 
+   select(-diff_salary))
+
+(sal.lev <- levene_test(salaries.long, salary ~ gender))
+
+(BbVsFb.lev <- levene_test(BbVsFb.long, weights ~ sport))
+
+```
+
+<div class="ans">
+First, I made the "salaries.csv" dataset tidy to implement the Levene test. The test result shows I failed to reject the null hypothesis, and I have insufficient evidence to conclude the sample variances are different, p = `r round(as.numeric(sal.lev[4]),2)` > 0.05, d = `r round(as.numeric(sal.lev[2]),2)`. For the "BbVsFb.csv" dataset, I used the same Levene test and again, I failed to reject the null hypothesis, p = `r round(as.numeric(BbVsFb.lev[4]),2)`  > 0.05, d = `r round(as.numeric(BbVsFb.lev[2]),2)`. The sample variances for this dataset are the same.
+</div>
+
+c. Statistically compare the means of each set. What are the results? [3 marks]
+```{r}
+(Salary.model <- t_test(salaries.long, salary ~ gender, paired =T))
+
+(BbVsFb.model<- t_test(BbVsFb.long, weights ~ sport, var.equal=T))
+
+```
+<div class="ans">
+For the "salaries.csv" dataset, I failed to reject the null hypothesis. As a result, mean salaries was not statistically different by gender, t(`r as.numeric(Salary.model[7])`) = `r as.numeric(round(Salary.model[6],2))`, p = `r as.numeric(Salary.model[8])` > 0.05.
+
+For the "BbVsFb.csv" dataset, I can reject the null hypothesis and conclude that the mean difference in weight between basketball and football players in the sample was statistically
+significant, t(`r as.numeric(BbVsFb.model[7])`) = `r as.numeric(round(BbVsFb.model[6],2))`, p = `r as.numeric(BbVsFb.model[8])`, with football players tending to weigh more than basketball players.
+</div>
+
+
+## Question 2 - Linear Regresssion [10 marks]
+
+Load *Insurance.csv*, which contains auto insurance information for regions Sweden. Where `X = number of claims` and `Y = total payment for all the claims in thousands` (Swedish Kronor).
+
+a. Use summary and plot to investigate the data. Identify anything worth noting. [2 marks]
+```{r}
+(insurance <- read_csv("insurance.csv", 
+                       col_names=c("number_of_claims","total_payments"), 
+                       skip=1, 
+                       show_col_types = FALSE))
+
+summary(insurance)
+
+insurance %>% 
+  ggplot() + 
+  aes(x = number_of_claims) + 
+  geom_histogram(binwidth = 10) + 
+  xlab("Number of claims")
+
+insurance %>% 
+  ggplot() + 
+  aes(x = total_payments) + 
+  geom_histogram(binwidth = 20) +
+  xlab("Total payment")
+
+cor(insurance$total_payments,insurance$number_of_claims)
+
+
+
+
+```
+<div class="ans">
+Here is the auto insurance information in Sweden. In the dataset, there are `r nrow(insurance)`  claims with the range of `r min(insurance$number_of_claims)` to `r max(insurance$number_of_claims)` and a mean of `r round(mean(insurance$number_of_claims))`. The distribution for this variable is skewed to the right.
+
+The other variable is the total payment for all the claims in thousands. It also has `r nrow(insurance)` data, and the range is between `r min(insurance$total_payments)` and `r min(insurance$total_payments)`, with a mean of `r round(mean(insurance$total_payments))`. The distribution for this variable is skewed to the right.
+
+The correlation `r round(cor(insurance$total_payments,insurance$number_of_claims),2)` shows there is a strong positive linear correlation. As the number claims increases, the total payments tend to increase.
+</div>
+
+b. Perform a simple linear regression to generate a model for the relationship. [1 mark] 
+```{r}
+(relation <- (lm(total_payments ~ number_of_claims, data = insurance)))
+
+
+```
+
+c. Plot the model for evaluation and summarize the results. [3 marks]
+
+```{r}
+insurance %>% 
+  ggplot() +
+  aes(x = number_of_claims, y = total_payments) + 
+  geom_point() + 
+  geom_smooth(method = lm) +
+  xlab("Number of claims") +
+  ylab("Total payment")
+
+
+```
+<div class="ans">
+Most observations have less than forty claims. There are two observation which have more than 100 claims. There is a strong positive relationship between total payments and the number of claims, and the standard deviation slightly rises as the number of claims increases.
+
+</div>
+
+d. Output the summary of your model and explain the relevant things it tells you. Use inline r-markdown where relevant. [3 marks]
+
+```{r}
+(summary_relation <- summary(relation))
+
+```
+<div class="ans">
+The residual median is `r round(median(summary_relation$residuals),3)`, which is around zero. It shows we do not have a bias in our model.
+
+The total payment is `r round(summary_relation$coefficients[1][1])` when there are no claims. Since we expect no pay for no claim, this estimate is not very useful.
+
+For every ten additional claims increase, we would expect the total payments to increase on average by `r round(summary_relation$coefficients[2][1]*10)`.
+
+The number of claims explains `r round(summary_relation$adj.r.squared*100,2)`% of the variability in the total payment.
+
+Also, I can reject the null hypothesis that there is no relationship between the number of claims and total payment with F(`r summary_relation$df[1]`,`r summary_relation$df[2]`) =`r as.numeric(round(summary_relation$fstatistic[1]))`, p < 0.001.
+</div>
+
+e. Use the model to predict the total claim, if the number of accidents is 80 and 150. [1 marks]
+
+```{r}
+newData <- tibble(number_of_claims = c(80, 150))
+predict(relation, newData)
+
+```
+
+## Question 3 - Stringr [10 marks]
+
+a. The *babynames* library that was loaded at the top of the document contains a *babynames* dataframe. Examine this dataframe (so you know what's in it) and filter it so that your resulting dataframe (which you're going to use for the rest of this question) contains only the names from the year you were born.  Output the first 5 rows of you new data frame.
+```{r}
+babynames_1988 <- babynames %>% 
+  filter(year == 1988)
+babynames_1988 %>% 
+  head(5)
+
+```
+
+b. Using stringr and your new dataframe, calculate the mean length of all girl names, and compare it to the mean length of all boys names.
+```{r}
+Fem_babynames_1988 <- babynames_1988 %>% 
+  filter(sex == "F")
+
+mean(str_length(Fem_babynames_1988$name))
+
+Male_babynames_1988 <- babynames_1988 %>% 
+  filter(sex == "M")
+
+mean(str_length(Male_babynames_1988$name))
+```
+
+c. Extract the first letter of each girls name (into a new vector) then use `table` to get a count of each letter.  Do the same for the boys names.
+```{r}
+str_extract(Fem_babynames_1988$name, "^.") %>% 
+  table()
+
+str_extract(Male_babynames_1988$name, "^.") %>% 
+  table()
+
+```
+
+d. Find all girls names that contain 'zz' (you can just display the names)
+```{r}
+str_view(Fem_babynames_1988$name,"zz|Zz", match = T)
+
+```
+
+e. Display the entire row in the dataframe for all boys names that contain 'zz'
+```{r}
+Male_babynames_1988 %>% 
+  filter(str_detect(Male_babynames_1988$name,"zz|Zz"))
+
+```
+
+f. Create vector containing 5 full names (first and last).  Using stringr functions to output each name as first initial - period  - last name. (i.e. Jamie Mitchell -> J. Mitchell). This should be a vectorized solution (no looping). 
+```{r}
+full_names <- c("Ali Tahsili", 
+                "James Ford", 
+                "Thomas Edison", 
+                "Henry Hamilton", 
+                "Jessica Martinez")
+
+str_replace(full_names, "([^ ]+)", 
+            str_c(str_extract(full_names,"^."),"."))
+
+```
+
+
+## Question 4 - Twitter [15 marks]
+
+**Note: because of the transient nature of Twitter, you'll never be able to pull the same data twice.  Please do your data collection in an R Script, and save the resulting dataframe to a file.  Include your code in the un-executing block below so I can see it...but the Markdown file should load your collected data from the file(s) you created. **
+
+Go to Twitters search page (https://twitter.com/search-home?lang=en) and find something interesting to you that is currently trending. 
+
+In a separate R Script, use the rTweet library to access Twitter's REST API and pull any historical tweets with that hashtag.  
+
+Then use Twitters Streaming API to collect real-time tweets with the same hashtag for several hours (at least 3).  
+
+Parse both collections into dataframes and add a variable indicating which method it was collected with.  Then combine the data frames into one.  Export this to a file, and include all your code in the un-executing block below.
+
+Import the data from the file you created and use this data frame and the tidy text library to do some relevant text analysis (this should include cleaning, tokenizing, frequencies, and a couple of interesting graphs).  
+
+You are expected to describe your analysis.  Don't just include results with no explanation.
+
+*Note: you are expected to creatively chose your own analysis. Repeating the things demonstrated in the slides will get you at most part marks*.
+
+```{r eval=FALSE}
+
+# Looked for "#BallonDor" on Twitter before the ceremony date.
+BallonDor_Hashtag <- search_tweets("#BallonDor", 
+                             n = 100000, 
+                             include_rts = FALSE, 
+                             language = "en",  
+                             until= "2021-11-29", 
+                             retryonratelimit = TRUE)
+
+# Since it was not enough tweet of the hashtag, I searched for the word itself: "Ballon d'Or".
+BallonDor_NoHashtag <- search_tweets("Ballon d'Or", 
+                                 n = 100000, 
+                                 include_rts = FALSE, 
+                                 language = "en",
+                                 until= "2021-11-29", 
+                                 retryonratelimit = TRUE)
+
+# I used the union function to join these two data frames and did not include 
+# the common observation.
+BallonDor_Historic<- union(BallonDor_Hashtag,BallonDor_NoHashtag)
+
+# Removed unused data frames to save space.
+rm(BallonDor_Hashtag, BallonDor_NoHashtag)
+
+# Saved the time of announcing the winner of Ballon d'Or.
+winner_time <- ymd_hms("2021-11-29 20:53:00")
+
+# removed any data after announcing the winner.
+BallonDor_Historic <- BallonDor_Historic %>% 
+  filter(created_at < winner_time)
+
+# 40046 data extracted before announcing time.
+# Added a variable indicating which method it was collected with.
+BallonDor_Historic <- BallonDor_Historic %>% mutate(Collect_Method = "REST")
+
+
+# Streamed the data after announcing the winner and saved it to json file.
+stream_tweets("#BallonDor", 
+              language = "en", 
+              include_rts = FALSE,
+              timeout = 60*60*3,
+              file_name = "BallonDor.json", 
+              parse = FALSE)
+
+# Let's parse the json file.
+# BallonDor_Stream <- parse_stream("BallonDor.json")
+# I got an error: parse error: unallowed token at this point in JSON text 
+# This error showed up because while it collected streaming data, inconsistent internet connection resulted in tweet objects containing unintended carriage returns. So, I used recover_stream() function from the below source. 
+# https://gist.githubusercontent.com/JBGruber/dee4c44e7d38d537426f57ba1e4f84ab/raw/ce28d3e8115f9272db867158794bc710e8e28ee5/recover_stream.R
+BallonDor_Stream <- recover_stream("BallonDor.json")
+
+# There was an interactive question popped up: 
+# There were 54306 tweets with problems. Should they be copied to your working directory?  
+# I chose 3 which was "copy a list with status_ids" selection.
+# Then I assigned all the broken tweets in broken_tweets data frame.
+broken_tweets <- rtweet::lookup_statuses(readLines("broken_tweets.txt"))
+
+# Then I combined the BallonDor_Stream and broken_tweets together.
+BallonDor_Stream_complete <- bind_rows(BallonDor_Stream,broken_tweets)
+
+# Removed unused data frames to save space.
+rm(broken_tweets, BallonDor_Stream)
+
+# Added a variable indicating which method it was collected with.
+BallonDor_Stream_complete <- BallonDor_Stream_complete %>% mutate(Collect_Method = "Streamed")
+
+# removed any data before announcing the winner.
+BallonDor_Stream_complete <- BallonDor_Stream_complete %>% 
+  filter(created_at >= winner_time)
+  
+# 222183 data have being streamed after announcing the winner
+# Combined the streaming and historic data together.
+BallonDor <- bind_rows(BallonDor_Historic,BallonDor_Stream_complete)
+
+# Removed unused data frames to save space
+rm(BallonDor_Historic, BallonDor_Stream_complete)
+
+# Selected 15 variables which are useful for my the analysis.
+BallonDor <- BallonDor %>% select(user_id, status_id, created_at, screen_name, 
+                                     text, source, Collect_Method, favorite_count, 
+                                     retweet_count, reply_count, country, url, 
+                                     country_code, followers_count, verified, 
+                                     followers_count)
+
+# Saved BallonDor to RData file to load it later.
+save(BallonDor, file = "BallonDor.RData")
+
+```
+
+```{r  include=FALSE}
+library(tidytext)
+library(textdata)
+library(wordcloud)
+library(reshape2)
+library(igraph)
+library(glue)
+
+```
+
+
+### REST vs. Stream?
+```{r}
+
+# First, let's load the data.
+load("BallonDor.RData")
+
+# Let's see how many tweets are collected from streaming and REST each.
+(n_collect <- BallonDor %>% count(Collect_Method))
+
+```
+<div class="ans">
+There are about `r round(n_collect$n[2]/n_collect$n[1],1)` times tweets collected from streaming compared to REST API. Because the #BallonDor trends a lot during and after the ceremony.
+</div>
+
+
+### How many tweets by each source?
+```{r}
+
+tweet_source <- BallonDor %>% 
+  group_by(source) %>% 
+  count(sort = T) %>% 
+  head(5)
+
+tweet_source %>% 
+  ggplot() +
+  # reordered sources by the number of tweets
+  aes(reorder(source, n), n, fill = source) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Twitter sources for #BallonDor") +
+  xlab("Source") +
+  ylab("# of Tweets") +
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.text.x = element_text(angle = 15),
+        legend.position="none")
+
+```
+
+
+<div class="ans">
+Most of the tweets for #BallonDor came from Android devices following by iPhone and Web App.
+</div>
+
+### What are the most used words for #BallonDor Tweets?
+```{r}
+
+common.words <- BallonDor %>% 
+  select(text) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word,
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]"))
+
+most.frequency <- common.words %>% 
+  count(word, sort = TRUE)
+
+most.frequency %>% 
+  head(200)
+
+common.words%>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 150))
+
+```
+
+
+<div class="ans">
+By looking at the table, #ballondor has used the most. Messi is the second word that is the winner of the Ballon d'Or 2021 ceremony, and Lionel is his first name which is the 5th word. Robert Lewandowski is the runner-up as the 7th and 9th most used words in this result. The reason for the word "7th", which is the 11th most used word in the table, is that Lionel Messi got his 7th Ballon d'Or award. Ronaldo came up number 21st most used word despite achieving rank 6 in the Ballon d'Or ceremony. That is because of the well-known rivalry that  Messi and Ronaldo have in 20 years. Also, it is worth mentioning the words "deserve" (word 20th) and robbed (word 30th) should be investigated further.
+</div>
+
+### Investigating some interesting words in BallonDor data frame.
+
+#### Investigating The link "https://t.co/u2sywjmruc" 11th word
+```{r}
+
+# Investigated what tweets related to number 11 most used word which is a link: https://t.co/u2sywjmruc
+BallonDor %>% 
+  filter(str_detect(text, "https://t.co/u2sywjmruc")) %>% 
+  select(text)
+
+```
+
+
+<div class="ans">
+There are no tweet texts, including that link. So, it is maybe something wrong happened during the unnesting process.
+</div>
+
+#### Investigating the 20th most used word: deserve
+```{r}
+
+# "deserve" word (20th)
+deserve <- BallonDor %>% 
+  select(text) %>% 
+  filter(str_detect(text, "deserve")) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word, 
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]")) %>% 
+  count(word, sort = TRUE)
+
+deserve %>% head(200)
+```
+
+
+<div class="ans">
+It is fascinating that in Tweets containing "deserve", Robert is the most used word and Messi got the third place. This result may show that many people think Robert Lewandowski deserved more to get the award than Messi. So, we should investigate the verb "not deserve" and check which football player got the first place.
+</div>
+
+#### Investigating "not deserve"
+```{r}
+
+# "not deserve" word
+(not_deserve <- BallonDor %>% 
+  select(text) %>% 
+   # I took into account the "don't deserve" and "doesn't deserve" as well.
+  filter(str_detect(text, "not deserve")|str_detect(text, "n't deserve")) %>% 
+    head(100))
+
+not_deserve <- BallonDor %>% 
+  select(text) %>% 
+  filter(str_detect(text, "not deserve")|str_detect(text, "n't deserve")) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word, 
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]")) %>% 
+  count(word, sort = TRUE)
+
+not_deserve %>% 
+  head(200)
+```
+
+
+<div class="ans">
+At first, I gathered some tweet texts that included "not deserve". Several people seemed angry about Lewandowski not winning an award. Also, in the table we can see, the word "Messi" has been used the most in tweets that mentioned, "not deserve"! Wow!!! Let's see which words used before and after deserve. I used ngrams method for analyzing that.
+</div>
+
+#### Implementing ngrams for analysing "deserve" further
+```{r}
+deserve_bigram <- BallonDor %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 5) %>%
+  count(bigram, sort = TRUE) %>%
+    filter(str_detect(bigram, "deserve"))
+
+deserve_bigram %>% 
+  head(200)
+  
+```
+
+
+<div class="ans">
+This ngrams also confirms the fact that many people believe Robert Lewandowski deserved the Ballon d'Or award.
+</div>
+
+#### Investigating "robbed" (word 30th)
+```{r}
+robbed <- BallonDor %>% 
+  select(text) %>% 
+  filter(str_detect(text, "robbed"))
+
+robbed %>% 
+  head(100)
+
+robbed <- BallonDor %>% 
+  select(text) %>% 
+  filter(str_detect(text, "robbed")) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word, 
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]")) %>% 
+  count(word, sort = TRUE)
+
+robbed %>% 
+  head(200)
+```
+
+
+<div class="ans">
+The result that came from filtering "robbed" showed that many people believed Lewandowski was robbed due to the decision of the Ballon d'Or ceremony. In addition, the table showed Lewandowski was the first in the Tweets related to the word robbed. This result confirms the conclusion from the word "deserve".
+</div>
+
+### Most used word in REST vs. Stream method.
+```{r}
+
+freq.before.after <- BallonDor %>% 
+  select(text, Collect_Method) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word, 
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]")) %>% 
+  group_by(Collect_Method) %>% 
+  count(word, sort = TRUE) %>% 
+  # rate_n is n/(# of each collecting method)
+  mutate(rate_n = case_when(Collect_Method == "REST" ~ n/n_collect$n[1], 
+                            TRUE                    ~ n/n_collect$n[2]))
+
+freq.before.after %>% 
+  arrange(desc(rate_n)) %>% 
+  head(40)
+
+
+```
+
+
+<div class="ans">
+The impressive part is that Messi was mentioned after and before the ceremony more than Lewandowski, and this is obvious because Messi is much more famous than Lewandowski.
+</div>
+
+
+### Verified accounts
+```{r}
+most_word_verified <- BallonDor %>% 
+  filter(verified == T) %>% 
+  select(text, 
+         created_at, 
+         Collect_Method) %>% 
+  unnest_tokens(word, 
+                text, 
+                token = "tweets") %>% 
+  filter(!word %in% stop_words$word,
+         !word %in% str_remove_all(stop_words$word, "'"), 
+         str_detect(word, "[a-z]"))
+
+most_word_verified %>% 
+  count(word, sort = TRUE) %>% 
+  head(100)
+  
+```
+
+
+<div class="ans">
+In verified accounts Messi was tweeted more than any other players.
+</div>
+
+
+
+### Sentiment analysis
+
+#### Get the sentiments
+```{r eval=FALSE}
+bing <- get_sentiments("bing")
+save(bing, file = "bing.RData")
+
+# "This application/product/tool makes use of the NRC Word-Emotion Association Lexicon, created by {Mohammad, Saif M. and Turney, Peter D.} at the National Research Council Canada."
+# URL: http://saifmohammad.com/WebPages/lexicons.html 
+nrc <- get_sentiments("nrc")
+save(nrc, file = "nrc.RData")
+
+# "This application/product/tool makes use of the AFINN-111.
+# URL: http://www2.imm.dtu.dk/pubdb/views/publication_details.php?id=6010 
+afinn <- get_sentiments("afinn")
+save(afinn, file = "afinn.RData")
+
+```
+
+```{r include=FALSE}
+load("bing.RData")
+load("nrc.RData")
+load("afinn.RData")
+```
+
+
+
+#### Sentiment (bing library)
+```{r}
+
+bing.sentiment.counts <- most.frequency %>%
+                inner_join(bing) %>%
+  # Only filtered in with more than 600 counts
+  filter(n > 600) %>%
+  # Put positive words in positive axis and negative words in negative axis
+  mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ylab("Contribution to sentiment")
+
+bing.sentiment.counts
+
+```
+
+<div class="ans">
+Most of the words are positive because they were related to the Ballon d'Or ceremony, and this result would be expected. Words "winner", "award", "win", "won", "wins", "winning" and so on are have the most used in our dataset joined with bing sentiment library. I will filter these words to have a better sight.
+</div>
+
+```{r}
+myStopWords <- c("win","winner","award","winning", "won", "wins", "congratulations","top","awards","fans")
+bing.sentiment.counts.trimmed <- most.frequency %>%
+                inner_join(bing) %>%
+  # Only filtered in with more than 600 counts
+  filter(n > 600) %>%
+  filter (!word %in% myStopWords) %>% 
+  # Put positive words in positive axis and negative words in negative axis
+  mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ylab("Contribution to sentiment")
+
+bing.sentiment.counts.trimmed
+```
+
+<div class="ans">
+After filtering `myStopWords`, the diagram shows the word "insane" repeated about 2000 times following with "worried", "offence" and "breaking" with less than 2000 times in negative words. "Magic", "fantastic", "trophy" and "proud" are tweeted more than 2000 times in positive words.
+</div>
+
+#### Sentiment (nrc library)
+```{r}
+# barchart plotted to show ten sentiment from nrc library
+most.frequency %>%
+  inner_join(nrc) %>%
+  count(sentiment, sort=TRUE)%>%
+  ggplot(aes(sentiment, n, fill=sentiment)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Sentiment for Ballon d'Or ceremony") +
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.text.x = element_text(angle = 15),
+        legend.position="none")
+
+# Separated positive and negative sentiment from other sentiments
+common.words %>%
+  inner_join(nrc) %>%
+  filter(sentiment %in% c("positive", 
+                          "negative")) %>%
+  count(word,sentiment, sort=TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = brewer.pal(8, "Dark2"),
+                   title.size=1.5, max.words=300)
+
+# Positive and negative sentiment filtered
+common.words %>%
+  inner_join(nrc) %>%
+  filter(!sentiment %in% c("positive", 
+                          "negative")) %>%
+  count(word,sentiment, sort=TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = brewer.pal(8, "Dark2"),
+                   title.size=1.5, max.words=140)
+```
+<div class="ans">
+The bar chart showed most of the words tweeted in with negative sentiment. So, I plotted the word of cloud to see why. The term "player" is used so much and has a negative meaning in this lexicon; however, the player here means a football player. Looking at the other sentiments in the bar chart and word of cloud, we can see "trust" has the most frequency followed by "fear" and "anger".
+</div>
+
+#### Sentiment (afinn library)
+```{r}
+(afinn.sentiment <- most.frequency %>% 
+    inner_join(afinn, by = "word") %>% 
+    mutate(n_times_value = n*value))
+
+(sum.value <- afinn.sentiment %>% 
+    summarise(sum(n_times_value)))
+
+(sum.words <- afinn.sentiment %>% 
+    summarise(sum(n)))
+
+# average value for all the tweets:
+(avg.value.tweets <- as.numeric(sum.value/sum.words))
+
+  
+```
+
+<div class="ans">
+The afinn lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment. I calculated the average value for all the words related to the Ballon d'Or ceremony. To do that, I sorted words by their counts and created a new column which is the multiple of the count and its value. Then I summed all the values and divided them by the sum of all the words. The result was `r round(avg.value.tweets,2)`, which showed that the feedback from the ceremony was positive from one week before the ceremony to 3 hours after the ceremony.
+</div>
+
+
+### Bigram network
+#### Creat a sorted bigram
+```{r}
+bigram_words <- BallonDor %>% 
+  select(text) %>% 
+  unnest_tokens(
+    input = text, 
+    output = bigram, 
+    token = 'ngrams', 
+    n = 2) %>% 
+  count(bigram, sort = T)
+
+bigram_words %>% 
+  head(50)
+
+  bigram_count <- bigram_words %>% 
+    # Separating bigram into two words
+    separate(col = bigram, 
+             into = c('word1', 'word2'), 
+             sep = ' ') %>% 
+  filter(!word1 %in% stop_words$word, 
+         !word2 %in% stop_words$word,
+         !word1 %in% c("t.co", "https"),
+         !word2 %in% c("t.co", "https"),
+         str_detect(word1, "[a-z]"), 
+         str_detect(word2, "[a-z]"))
+  
+  bigram_count %>% 
+    head(50)
+```
+
+
+<div class="ans">
+The first bigram was (`r as.character(bigram_words[[1]][1])`). I removed both words to get a better result of most used bigram in tweets. Then I separated the bigram into two words. As it is obvious, `r as.character(bigram_count[[1]][1])` `r as.character(bigram_count[[2]][1])` is the most used bigram. `r as.character(bigram_count[[1]][2])` `r as.character(bigram_count[[2]][2])` is the second one which was the winner of the ceremony.
+</div>
+
+#### Bigram log-Weight Distribution
+```{r}
+bigram_count %>% 
+  ggplot(mapping = aes(log10(n+1))) +
+  theme_light() +
+  geom_histogram() +
+  labs(title = "Bigram log-Weight Distribution")
+
+```
+<div class="ans">
+This distribution shows most words have been repeated less than 10 times, and very few words used more than 100.
+</div>
+
+#### Bigram Count Network
+```{r}
+threshold <- 1700
+
+network <-  bigram_count %>%
+  # filtered out the words used less than the threshold
+  filter(n > threshold) %>%
+  # For visualization purposes I scaled by 2000 
+  mutate(n = n/2000) %>% 
+  graph_from_data_frame(directed = FALSE)
+
+# plot the network
+plot(
+  network, 
+  vertex.size = 1,
+  vertex.label.color = 'blue', 
+  vertex.label.cex = 0.7, 
+  vertex.label.dist = 1,
+  edge.color = 'gray', 
+  main = 'Bigram Count Network', 
+  sub = glue('Weight Threshold: {threshold}'), 
+  alpha = 50
+)
+
+```
+<div class="ans">
+This fascinating network shows which word has the most connections by which words. "Ballondor" and "Messi" have the most connections among the words. Ronaldo and Lewandowski have a connection with watching, which implied that they were watching Lionel Messi winning the award. 😁
+</div>
+
