@@ -1,5 +1,5 @@
 # Random-R-Assignments
-Basics+ Intermediate + Advance
+Basics + Intermediate + Advance
 ## Assignment 1
     R Basics
     Program Flow
