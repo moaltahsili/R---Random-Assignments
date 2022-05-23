@@ -13,3 +13,5 @@ Basics + Intermediate + Advance
     Basic Modelling
     Advanced Input / Output & Working with Strings
     Text Data Analysis
+   ## Note
+   To open *.html file  or Enter URL of the HTML file to this website: (http://htmlpreview.github.io/) or prepend to the URL: http://htmlpreview.github.io/?
